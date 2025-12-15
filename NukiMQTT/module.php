@@ -11,55 +11,45 @@ class NukiMQTT extends IPSModule
 
     public function Create()
     {
-        // Never delete this line!
         parent::Create();
 
         // 1. Register Properties
         $this->RegisterPropertyString('BaseTopic', 'nuki');
         $this->RegisterPropertyString('DeviceID', '45A2F2BF');
 
-        // 2. Connect to Parent (MQTT Server) automatically
-        $this->ConnectParent("{C6D2AEB3-6E1F-4B2E-8E69-3A170C527003}");
+        // 2. Connect to YOUR specific Parent GUID
+        $this->ConnectParent("{C6D2AEB3-6E1F-4B2E-8E69-3A1A00246850}");
 
         // 3. Create Variable Profiles
         $this->CreateStatusProfile();
         $this->CreateActionProfile();
 
         // 4. Register Variables
-        // Status (Read Only)
         $this->RegisterVariableInteger('LockState', 'Current Status', 'Nuki.State', 10);
-        
-        // Action (Buttons to control the lock via WebFront)
         $this->RegisterVariableInteger('LockAction', 'Control', 'Nuki.Action', 20);
         $this->EnableAction('LockAction');
-
-        // Connectivity
         $this->RegisterVariableBoolean('Connected', 'Connected', '~Alert.Reversed', 30);
     }
 
     public function Destroy()
     {
-        // Never delete this line!
         parent::Destroy();
     }
 
     public function ApplyChanges()
     {
-        // Never delete this line!
         parent::ApplyChanges();
 
-        // Connect to MQTT Server (Parent)
         $baseTopic = $this->ReadPropertyString('BaseTopic');
         $deviceId = $this->ReadPropertyString('DeviceID');
         
         // Filter: nuki/DeviceID/#
-        // We use preg_quote to ensure special characters don't break the regex
         $filter = '.*' . preg_quote($baseTopic . '/' . $deviceId) . '/.*';
         $this->SetReceiveDataFilter($filter);
     }
 
     // =================================================================
-    // PUBLIC FUNCTIONS (Accessed by NUKI_Unlock, NUKI_Lock, etc.)
+    // PUBLIC FUNCTIONS
     // =================================================================
 
     public function Lock()
@@ -90,20 +80,16 @@ class NukiMQTT extends IPSModule
         $topicRaw = $data->Topic;
         $payload = utf8_decode($data->Payload);
 
-        // Debug output
         $this->SendDebug('MQTT In', "Topic: $topicRaw | Payload: $payload", 0);
 
         $baseTopic = $this->ReadPropertyString('BaseTopic');
         $deviceId = $this->ReadPropertyString('DeviceID');
         $root = $baseTopic . '/' . $deviceId . '/';
 
-        // Check which sub-topic we received
         if ($topicRaw === $root . 'lockState') {
-            // Payload is an integer (e.g. 1=Locked, 3=Unlocked)
             $this->SetValue('LockState', intval($payload));
         } 
         elseif ($topicRaw === $root . 'connected') {
-            // Payload is "true" or "false"
             $isConnected = ($payload === 'true');
             $this->SetValue('Connected', $isConnected);
         }
@@ -111,7 +97,6 @@ class NukiMQTT extends IPSModule
 
     public function RequestAction($Ident, $Value)
     {
-        // This function handles clicks from the WebFront
         switch ($Ident) {
             case 'LockAction':
                 $this->ControlLock(intval($Value));
@@ -127,23 +112,21 @@ class NukiMQTT extends IPSModule
         $baseTopic = $this->ReadPropertyString('BaseTopic');
         $deviceId = $this->ReadPropertyString('DeviceID');
         
-        // Topic: nuki/45A2F2BF/lockAction
         $topic = $baseTopic . '/' . $deviceId . '/lockAction';
         $payload = (string)$actionCode;
 
         $this->SendDebug('MQTT Out', "Topic: $topic | Payload: $payload", 0);
         
-        // Send to MQTT Parent
         $this->SendMQTT($topic, $payload);
     }
 
     private function SendMQTT($Topic, $Payload)
     {
         $DataJSON = json_encode([
-            'DataID' => '{043EA491-0325-4ADD-8FC2-A30C8EEB4D3F}', // MQTT Interface GUID
+            'DataID' => '{043EA491-0325-4ADD-8FC2-A30C8EEB4D3F}', 
             'PacketType' => 3,       // 3 = MQTT Publish
-            'QualityOfService' => 0, // 0 = QoS 0
-            'Retain' => false,       // Do not retain
+            'QualityOfService' => 0, 
+            'Retain' => false,       
             'Topic'  => $Topic,
             'Payload'=> $Payload
         ]);
@@ -153,7 +136,7 @@ class NukiMQTT extends IPSModule
     private function CreateStatusProfile()
     {
         if (!IPS_VariableProfileExists('Nuki.State')) {
-            IPS_CreateVariableProfile('Nuki.State', 1); // 1 = Integer
+            IPS_CreateVariableProfile('Nuki.State', 1);
             IPS_SetVariableProfileAssociation('Nuki.State', 0, 'Uncalibrated', '', -1);
             IPS_SetVariableProfileAssociation('Nuki.State', 1, 'Locked', 'Lock', 0xFF0000);
             IPS_SetVariableProfileAssociation('Nuki.State', 2, 'Unlocking', '', -1);
@@ -170,9 +153,8 @@ class NukiMQTT extends IPSModule
     private function CreateActionProfile()
     {
         if (!IPS_VariableProfileExists('Nuki.Action')) {
-            IPS_CreateVariableProfile('Nuki.Action', 1); // 1 = Integer
+            IPS_CreateVariableProfile('Nuki.Action', 1);
             IPS_SetVariableProfileIcon('Nuki.Action', 'Power');
-            // These values map to the Action IDs defined at the top
             IPS_SetVariableProfileAssociation('Nuki.Action', 2, 'Lock', 'Lock', 0xFF0000);
             IPS_SetVariableProfileAssociation('Nuki.Action', 1, 'Unlock', 'LockOpen', 0x00FF00);
             IPS_SetVariableProfileAssociation('Nuki.Action', 3, 'Unlatch (Open)', 'Door', 0x0000FF);
