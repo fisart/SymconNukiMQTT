@@ -11,14 +11,16 @@ class NukiMQTT extends IPSModule
 
     public function Create()
     {
+        // Never delete this line!
         parent::Create();
 
         // 1. Register Properties
         $this->RegisterPropertyString('BaseTopic', 'nuki');
         $this->RegisterPropertyString('DeviceID', '45A2F2BF');
 
-        // 2. Connect to YOUR specific Parent GUID
-        $this->ConnectParent("{C6D2AEB3-6E1F-4B2E-8E69-3A1A00246850}");
+        // 2. Connect to Parent
+        // We try the standard MQTT Server ID first, as it is the most likely match for "MQTT Server"
+        $this->ConnectParent("{C6D2AEB3-6E1F-4B2E-8E69-3A170C527003}");
 
         // 3. Create Variable Profiles
         $this->CreateStatusProfile();

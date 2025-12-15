@@ -5,11 +5,11 @@
     "vendor": "Nuki",
     "aliases": ["Nuki Smart Lock"],
     "parentRequirements": [
-        "{C6D2AEB3-6E1F-4B2E-8E69-3A1A00246850}",
-        "{C6D2AEB3-6E1F-4B2E-8E69-3A170C527003}",
-        "{F7A0DD2E-7684-95C0-64C2-D2A9DC47577B}"
+        "{C6D2AEB3-6E1F-4B2E-8E69-3A170C527003}", 
+        "{F7A0DD2E-7684-95C0-64C2-D2A9DC47577B}",
+        "{C6D2AEB3-6E1F-4B2E-8E69-3A1A00246850}"
     ],
     "childRequirements": [],
-    "implemented": ["{015967C7-41E4-9988-E04E-A893D2C59D16}"],
+    "implemented": [],
     "prefix": "NUKI"
 }
