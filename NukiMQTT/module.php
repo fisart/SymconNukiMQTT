@@ -11,16 +11,15 @@ class NukiMQTT extends IPSModule
 
     public function Create()
     {
-        // Never delete this line!
         parent::Create();
 
         // 1. Register Properties
         $this->RegisterPropertyString('BaseTopic', 'nuki');
         $this->RegisterPropertyString('DeviceID', '45A2F2BF');
 
-        // 2. Connect to Parent
-        // We try the standard MQTT Server ID first, as it is the most likely match for "MQTT Server"
-        $this->ConnectParent("{C6D2AEB3-6E1F-4B2E-8E69-3A170C527003}");
+        // 2. Connect to YOUR specific MQTT Server GUID
+        // We use the ID ending in ...850 as found on your system
+        $this->ConnectParent("{C6D2AEB3-6E1F-4B2E-8E69-3A1A00246850}");
 
         // 3. Create Variable Profiles
         $this->CreateStatusProfile();
@@ -45,14 +44,9 @@ class NukiMQTT extends IPSModule
         $baseTopic = $this->ReadPropertyString('BaseTopic');
         $deviceId = $this->ReadPropertyString('DeviceID');
         
-        // Filter: nuki/DeviceID/#
         $filter = '.*' . preg_quote($baseTopic . '/' . $deviceId) . '/.*';
         $this->SetReceiveDataFilter($filter);
     }
-
-    // =================================================================
-    // PUBLIC FUNCTIONS
-    // =================================================================
 
     public function Lock()
     {
@@ -71,10 +65,6 @@ class NukiMQTT extends IPSModule
         $this->ControlLock(self::ACTION_UNLATCH);
         $this->SetValue('LockAction', self::ACTION_UNLATCH);
     }
-
-    // =================================================================
-    // INTERNALS
-    // =================================================================
 
     public function ReceiveData($JSONString)
     {
@@ -126,7 +116,7 @@ class NukiMQTT extends IPSModule
     {
         $DataJSON = json_encode([
             'DataID' => '{043EA491-0325-4ADD-8FC2-A30C8EEB4D3F}', 
-            'PacketType' => 3,       // 3 = MQTT Publish
+            'PacketType' => 3,       
             'QualityOfService' => 0, 
             'Retain' => false,       
             'Topic'  => $Topic,
