@@ -8,5 +8,8 @@
         "{C6D2AEB3-6E1F-4B2E-8E69-3A1A00246850}"
     ],
     "childRequirements": [],
+    "implemented": [
+        "{015967C7-41E4-9988-E04E-A893D2C59D16}"
+    ],
     "prefix": "NUKI"
 }
