@@ -29,12 +29,17 @@
         {
             "type": "Button",
             "caption": "Unlock",
-            "onClick": "NUKI_RequestAction($id, 'LockAction', 1);"
+            "onClick": "NUKI_Unlock($id);"
         },
         {
             "type": "Button",
             "caption": "Lock",
-            "onClick": "NUKI_RequestAction($id, 'LockAction', 2);"
+            "onClick": "NUKI_Lock($id);"
+        },
+        {
+            "type": "Button",
+            "caption": "Unlatch (Open Door)",
+            "onClick": "NUKI_Unlatch($id);"
         }
     ]
 }
