@@ -50,7 +50,6 @@ class NukiMQTT extends IPSModule
         $deviceId = $this->ReadPropertyString('DeviceID');
         
         // Filter: nuki/DeviceID/#
-        // We use preg_quote to ensure special characters don't break the regex
         $filter = '.*' . preg_quote($baseTopic . '/' . $deviceId) . '/.*';
         $this->SetReceiveDataFilter($filter);
     }
@@ -137,7 +136,10 @@ class NukiMQTT extends IPSModule
     private function SendMQTT($Topic, $Payload)
     {
         $DataJSON = json_encode([
-            'DataID' => '{043EA491-0325-4ADD-8FC2-A30C8EEB4D3F}', // MQTT Server/Client Interface GUID
+            'DataID' => '{043EA491-0325-4ADD-8FC2-A30C8EEB4D3F}', // MQTT Interface GUID
+            'PacketType' => 3,       // 3 = MQTT Publish
+            'QualityOfService' => 0, // 0 = QoS 0
+            'Retain' => false,       // Do not retain
             'Topic'  => $Topic,
             'Payload'=> $Payload
         ]);
