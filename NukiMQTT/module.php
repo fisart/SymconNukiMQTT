@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 class NukiMQTT extends IPSModule
 {
+    // Constants from the working reference
+    private const NUKI_MQTT_SERVER_GUID = '{C6D2AEB3-6E1F-4B2E-8E69-3A1A00246850}'; // The Module ID of your Server
+    private const NUKI_MQTT_TX_GUID     = '{043EA491-0325-4ADD-8FC2-A30C8EEB4D3F}'; // Data TX (Send)
+    
+    // Actions
     const ACTION_UNLOCK = 1;
     const ACTION_LOCK = 2;
     const ACTION_UNLATCH = 3;
@@ -12,12 +17,17 @@ class NukiMQTT extends IPSModule
     {
         parent::Create();
 
-        $this->RegisterPropertyString('BaseTopic', 'nuki');
+        // 1. Register Properties
+        // Note: The reference calls it 'MQTTTopic', you called it 'BaseTopic'. 
+        // We will stick to your naming to keep your settings.
+        $this->RegisterPropertyString('BaseTopic', 'nuki'); 
         $this->RegisterPropertyString('DeviceID', '45A2F2BF');
 
-        // DISABLED Auto-Connect to allow manual selection
-        // $this->ConnectParent("{C6D2AEB3-6E1F-4B2E-8E69-3A1A00246850}");
+        // 2. Connect to Parent
+        // Using the GUID from the reference code which matches your system
+        $this->ConnectParent(self::NUKI_MQTT_SERVER_GUID);
 
+        // 3. Profiles and Variables
         $this->CreateStatusProfile();
         $this->CreateActionProfile();
 
@@ -39,9 +49,15 @@ class NukiMQTT extends IPSModule
         $baseTopic = $this->ReadPropertyString('BaseTopic');
         $deviceId = $this->ReadPropertyString('DeviceID');
         
+        // Filter: We construct the filter for the RX Interface
+        // Reference uses '.*topic.*', we use specific path '.*nuki/ID/.*'
         $filter = '.*' . preg_quote($baseTopic . '/' . $deviceId) . '/.*';
         $this->SetReceiveDataFilter($filter);
     }
+
+    // =================================================================
+    // PUBLIC FUNCTIONS
+    // =================================================================
 
     public function Lock()
     {
@@ -61,9 +77,19 @@ class NukiMQTT extends IPSModule
         $this->SetValue('LockAction', self::ACTION_UNLATCH);
     }
 
+    // =================================================================
+    // INTERNALS
+    // =================================================================
+
     public function ReceiveData($JSONString)
     {
         $data = json_decode($JSONString);
+        
+        // Robust check for Topic/Payload existence
+        if(!property_exists($data, 'Topic') || !property_exists($data, 'Payload')) {
+            return;
+        }
+
         $topicRaw = $data->Topic;
         $payload = utf8_decode($data->Payload);
 
@@ -73,6 +99,7 @@ class NukiMQTT extends IPSModule
         $deviceId = $this->ReadPropertyString('DeviceID');
         $root = $baseTopic . '/' . $deviceId . '/';
 
+        // Check which sub-topic we received
         if ($topicRaw === $root . 'lockState') {
             $this->SetValue('LockState', intval($payload));
         } 
@@ -109,14 +136,16 @@ class NukiMQTT extends IPSModule
 
     private function SendMQTT($Topic, $Payload)
     {
+        // We use the TX GUID from the reference code here
         $DataJSON = json_encode([
-            'DataID' => '{043EA491-0325-4ADD-8FC2-A30C8EEB4D3F}', 
+            'DataID' => self::NUKI_MQTT_TX_GUID, // {043...}
             'PacketType' => 3,       
             'QualityOfService' => 0, 
             'Retain' => false,       
             'Topic'  => $Topic,
             'Payload'=> $Payload
-        ]);
+        ], JSON_UNESCAPED_SLASHES);
+        
         $this->SendDataToParent($DataJSON);
     }
 
