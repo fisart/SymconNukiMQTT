@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 class NukiMQTT extends IPSModule
 {
-    // Mappings based on Nuki MQTT API
     const ACTION_UNLOCK = 1;
     const ACTION_LOCK = 2;
     const ACTION_UNLATCH = 3;
@@ -13,19 +12,15 @@ class NukiMQTT extends IPSModule
     {
         parent::Create();
 
-        // 1. Register Properties
         $this->RegisterPropertyString('BaseTopic', 'nuki');
         $this->RegisterPropertyString('DeviceID', '45A2F2BF');
 
-        // 2. Connect to Parent
-        // We use YOUR SPECIFIC MODULE GUID here to tell Symcon "Use this instance"
-        //$this->ConnectParent("{C6D2AEB3-6E1F-4B2E-8E69-3A1A00246850}");
+        // DISABLED Auto-Connect to allow manual selection
+        // $this->ConnectParent("{C6D2AEB3-6E1F-4B2E-8E69-3A1A00246850}");
 
-        // 3. Create Variable Profiles
         $this->CreateStatusProfile();
         $this->CreateActionProfile();
 
-        // 4. Register Variables
         $this->RegisterVariableInteger('LockState', 'Current Status', 'Nuki.State', 10);
         $this->RegisterVariableInteger('LockAction', 'Control', 'Nuki.Action', 20);
         $this->EnableAction('LockAction');
@@ -44,7 +39,6 @@ class NukiMQTT extends IPSModule
         $baseTopic = $this->ReadPropertyString('BaseTopic');
         $deviceId = $this->ReadPropertyString('DeviceID');
         
-        // Filter: nuki/DeviceID/#
         $filter = '.*' . preg_quote($baseTopic . '/' . $deviceId) . '/.*';
         $this->SetReceiveDataFilter($filter);
     }
@@ -115,8 +109,6 @@ class NukiMQTT extends IPSModule
 
     private function SendMQTT($Topic, $Payload)
     {
-        // 3 = MQTT Publish
-        // This interface GUID matches module.json
         $DataJSON = json_encode([
             'DataID' => '{043EA491-0325-4ADD-8FC2-A30C8EEB4D3F}', 
             'PacketType' => 3,       

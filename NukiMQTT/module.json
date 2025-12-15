@@ -4,10 +4,7 @@
     "type": 3,
     "vendor": "Nuki",
     "aliases": ["Nuki Smart Lock"],
-    "parentRequirements": [
-        "{7A1272A4-CBDB-46EF-BFC6-DCF4A53D2FC7}",
-        "{043EA491-0325-4ADD-8FC2-A30C8EEB4D3F}"
-    ],
+    "parentRequirements": [],
     "childRequirements": [],
     "implemented": [
         "{043EA491-0325-4ADD-8FC2-A30C8EEB4D3F}"
