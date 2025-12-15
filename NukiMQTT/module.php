@@ -14,23 +14,26 @@ class NukiMQTT extends IPSModule
         // Never delete this line!
         parent::Create();
 
-        // Register Properties
+        // 1. Register Properties
         $this->RegisterPropertyString('BaseTopic', 'nuki');
         $this->RegisterPropertyString('DeviceID', '45A2F2BF');
 
-        // Create Variable Profiles
+        // 2. Connect to Parent (MQTT Server) automatically
+        $this->ConnectParent("{C6D2AEB3-6E1F-4B2E-8E69-3A170C527003}");
+
+        // 3. Create Variable Profiles
         $this->CreateStatusProfile();
         $this->CreateActionProfile();
 
-        // Register Variables
-        // 1. Status (Read Only)
+        // 4. Register Variables
+        // Status (Read Only)
         $this->RegisterVariableInteger('LockState', 'Current Status', 'Nuki.State', 10);
         
-        // 2. Action (Buttons to control the lock via WebFront)
+        // Action (Buttons to control the lock via WebFront)
         $this->RegisterVariableInteger('LockAction', 'Control', 'Nuki.Action', 20);
         $this->EnableAction('LockAction');
 
-        // 3. Connectivity
+        // Connectivity
         $this->RegisterVariableBoolean('Connected', 'Connected', '~Alert.Reversed', 30);
     }
 
@@ -50,12 +53,13 @@ class NukiMQTT extends IPSModule
         $deviceId = $this->ReadPropertyString('DeviceID');
         
         // Filter: nuki/DeviceID/#
+        // We use preg_quote to ensure special characters don't break the regex
         $filter = '.*' . preg_quote($baseTopic . '/' . $deviceId) . '/.*';
         $this->SetReceiveDataFilter($filter);
     }
 
     // =================================================================
-    // PUBLIC FUNCTIONS (These generate the NUKI_ commands)
+    // PUBLIC FUNCTIONS (Accessed by NUKI_Unlock, NUKI_Lock, etc.)
     // =================================================================
 
     public function Lock()
