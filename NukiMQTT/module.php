@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 class NukiMQTT extends IPSModule
 {
-    // Mappings based on Nuki MQTT API
     const ACTION_UNLOCK = 1;
     const ACTION_LOCK = 2;
     const ACTION_UNLATCH = 3;
@@ -17,16 +16,14 @@ class NukiMQTT extends IPSModule
         $this->RegisterPropertyString('BaseTopic', 'nuki');
         $this->RegisterPropertyString('DeviceID', '45A2F2BF');
 
-        // 2. Connect to Parent
-        // We prefer the Native MQTT Server (Module GUID)
-        // This works now because module.json allows the Interface it provides!
-        $this->ConnectParent("{C6D2AEB3-6E1F-4B2E-8E69-3A1A00246850}");
+        // REMOVED ConnectParent to prevent the "Incompatible" crash.
+        // You will select the gateway manually in the Console.
 
-        // 3. Create Variable Profiles
+        // 2. Profiles
         $this->CreateStatusProfile();
         $this->CreateActionProfile();
 
-        // 4. Register Variables
+        // 3. Variables
         $this->RegisterVariableInteger('LockState', 'Current Status', 'Nuki.State', 10);
         $this->RegisterVariableInteger('LockAction', 'Control', 'Nuki.Action', 20);
         $this->EnableAction('LockAction');
@@ -45,14 +42,9 @@ class NukiMQTT extends IPSModule
         $baseTopic = $this->ReadPropertyString('BaseTopic');
         $deviceId = $this->ReadPropertyString('DeviceID');
         
-        // Filter ensures we only receive data for this lock
         $filter = '.*' . preg_quote($baseTopic . '/' . $deviceId) . '/.*';
         $this->SetReceiveDataFilter($filter);
     }
-
-    // =================================================================
-    // PUBLIC FUNCTIONS
-    // =================================================================
 
     public function Lock()
     {
@@ -71,10 +63,6 @@ class NukiMQTT extends IPSModule
         $this->ControlLock(self::ACTION_UNLATCH);
         $this->SetValue('LockAction', self::ACTION_UNLATCH);
     }
-
-    // =================================================================
-    // INTERNALS
-    // =================================================================
 
     public function ReceiveData($JSONString)
     {
@@ -113,19 +101,14 @@ class NukiMQTT extends IPSModule
     {
         $baseTopic = $this->ReadPropertyString('BaseTopic');
         $deviceId = $this->ReadPropertyString('DeviceID');
-        
         $topic = $baseTopic . '/' . $deviceId . '/lockAction';
         $payload = (string)$actionCode;
-
         $this->SendDebug('MQTT Out', "Topic: $topic | Payload: $payload", 0);
-        
         $this->SendMQTT($topic, $payload);
     }
 
     private function SendMQTT($Topic, $Payload)
     {
-        // 3 = MQTT Publish
-        // This GUID {043...} matches the one in module.json!
         $DataJSON = json_encode([
             'DataID' => '{043EA491-0325-4ADD-8FC2-A30C8EEB4D3F}', 
             'PacketType' => 3,       
