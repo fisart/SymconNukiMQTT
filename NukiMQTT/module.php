@@ -19,7 +19,7 @@ class NukiMQTT extends IPSModule
 
         // 2. Connect to Parent
         // We use YOUR SPECIFIC MODULE GUID here to tell Symcon "Use this instance"
-        $this->ConnectParent("{C6D2AEB3-6E1F-4B2E-8E69-3A1A00246850}");
+        //$this->ConnectParent("{C6D2AEB3-6E1F-4B2E-8E69-3A1A00246850}");
 
         // 3. Create Variable Profiles
         $this->CreateStatusProfile();
