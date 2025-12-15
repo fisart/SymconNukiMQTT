@@ -17,8 +17,9 @@ class NukiMQTT extends IPSModule
         $this->RegisterPropertyString('BaseTopic', 'nuki');
         $this->RegisterPropertyString('DeviceID', '45A2F2BF');
 
-        // 2. Connect to YOUR specific MQTT Server GUID
-        // GUID: {C6D2AEB3-6E1F-4B2E-8E69-3A1A00246850}
+        // 2. Connect to Parent
+        // We prefer the Native MQTT Server (Module GUID)
+        // This works now because module.json allows the Interface it provides!
         $this->ConnectParent("{C6D2AEB3-6E1F-4B2E-8E69-3A1A00246850}");
 
         // 3. Create Variable Profiles
@@ -45,13 +46,12 @@ class NukiMQTT extends IPSModule
         $deviceId = $this->ReadPropertyString('DeviceID');
         
         // Filter ensures we only receive data for this lock
-        // We use preg_quote to handle slashes correctly
         $filter = '.*' . preg_quote($baseTopic . '/' . $deviceId) . '/.*';
         $this->SetReceiveDataFilter($filter);
     }
 
     // =================================================================
-    // PUBLIC FUNCTIONS (For Test Center & Scripts)
+    // PUBLIC FUNCTIONS
     // =================================================================
 
     public function Lock()
@@ -82,20 +82,16 @@ class NukiMQTT extends IPSModule
         $topicRaw = $data->Topic;
         $payload = utf8_decode($data->Payload);
 
-        // Debug output in Symcon Console
         $this->SendDebug('MQTT In', "Topic: $topicRaw | Payload: $payload", 0);
 
         $baseTopic = $this->ReadPropertyString('BaseTopic');
         $deviceId = $this->ReadPropertyString('DeviceID');
         $root = $baseTopic . '/' . $deviceId . '/';
 
-        // Check which sub-topic we received
         if ($topicRaw === $root . 'lockState') {
-            // Payload is an integer (e.g. 1=Locked, 3=Unlocked)
             $this->SetValue('LockState', intval($payload));
         } 
         elseif ($topicRaw === $root . 'connected') {
-            // Payload is "true" or "false"
             $isConnected = ($payload === 'true');
             $this->SetValue('Connected', $isConnected);
         }
@@ -103,7 +99,6 @@ class NukiMQTT extends IPSModule
 
     public function RequestAction($Ident, $Value)
     {
-        // Handles clicks from WebFront/Dashboard
         switch ($Ident) {
             case 'LockAction':
                 $this->ControlLock(intval($Value));
@@ -119,7 +114,6 @@ class NukiMQTT extends IPSModule
         $baseTopic = $this->ReadPropertyString('BaseTopic');
         $deviceId = $this->ReadPropertyString('DeviceID');
         
-        // Topic: nuki/45A2F2BF/lockAction
         $topic = $baseTopic . '/' . $deviceId . '/lockAction';
         $payload = (string)$actionCode;
 
@@ -130,12 +124,13 @@ class NukiMQTT extends IPSModule
 
     private function SendMQTT($Topic, $Payload)
     {
-        // Sends data to the MQTT Server with the required PacketType
+        // 3 = MQTT Publish
+        // This GUID {043...} matches the one in module.json!
         $DataJSON = json_encode([
-            'DataID' => '{043EA491-0325-4ADD-8FC2-A30C8EEB4D3F}', // Standard MQTT Data Interface
-            'PacketType' => 3,       // 3 = MQTT Publish
-            'QualityOfService' => 0, // 0 = QoS 0
-            'Retain' => false,       // Do not retain
+            'DataID' => '{043EA491-0325-4ADD-8FC2-A30C8EEB4D3F}', 
+            'PacketType' => 3,       
+            'QualityOfService' => 0, 
+            'Retain' => false,       
             'Topic'  => $Topic,
             'Payload'=> $Payload
         ]);
