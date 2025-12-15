@@ -1,0 +1,122 @@
+<?php
+
+declare(strict_types=1);
+
+class NukiMQTT extends IPSModule
+{
+    const ACTION_UNLOCK = 1;
+    const ACTION_LOCK = 2;
+    const ACTION_UNLATCH = 3;
+
+    public function Create()
+    {
+        parent::Create();
+
+        // These properties match the names in form.json
+        $this->RegisterPropertyString('BaseTopic', 'nuki');
+        $this->RegisterPropertyString('DeviceID', '45A2F2BF');
+
+        $this->CreateStatusProfile();
+        $this->CreateActionProfile();
+
+        $this->RegisterVariableInteger('LockState', 'Current Status', 'Nuki.State', 10);
+        $this->RegisterVariableInteger('LockAction', 'Control', 'Nuki.Action', 20);
+        $this->EnableAction('LockAction');
+        $this->RegisterVariableBoolean('Connected', 'Connected', '~Alert.Reversed', 30);
+    }
+
+    public function ApplyChanges()
+    {
+        parent::ApplyChanges();
+
+        $baseTopic = $this->ReadPropertyString('BaseTopic');
+        $deviceId = $this->ReadPropertyString('DeviceID');
+        
+        // Filter ensures we only get data for this specific lock
+        $filter = '.*' . preg_quote($baseTopic . '/' . $deviceId) . '/.*';
+        $this->SetReceiveDataFilter($filter);
+    }
+
+    public function ReceiveData($JSONString)
+    {
+        $data = json_decode($JSONString);
+        $topicRaw = $data->Topic;
+        $payload = utf8_decode($data->Payload);
+
+        // Native Symcon Debugging: Shows in the Debug window
+        $this->SendDebug('MQTT In', "Topic: $topicRaw | Payload: $payload", 0);
+
+        $baseTopic = $this->ReadPropertyString('BaseTopic');
+        $deviceId = $this->ReadPropertyString('DeviceID');
+        $root = $baseTopic . '/' . $deviceId . '/';
+
+        if ($topicRaw === $root . 'lockState') {
+            $this->SetValue('LockState', intval($payload));
+        } 
+        elseif ($topicRaw === $root . 'connected') {
+            $isConnected = ($payload === 'true');
+            $this->SetValue('Connected', $isConnected);
+        }
+    }
+
+    public function RequestAction($Ident, $Value)
+    {
+        switch ($Ident) {
+            case 'LockAction':
+                $this->ControlLock(intval($Value));
+                $this->SetValue($Ident, $Value);
+                break;
+            default:
+                throw new Exception("Invalid Ident");
+        }
+    }
+
+    private function ControlLock(int $actionCode)
+    {
+        $baseTopic = $this->ReadPropertyString('BaseTopic');
+        $deviceId = $this->ReadPropertyString('DeviceID');
+        
+        $topic = $baseTopic . '/' . $deviceId . '/lockAction';
+        $payload = (string)$actionCode;
+
+        $this->SendDebug('MQTT Out', "Topic: $topic | Payload: $payload", 0);
+        
+        $this->SendMQTT($topic, $payload);
+    }
+
+    private function SendMQTT($Topic, $Payload)
+    {
+        $DataJSON = json_encode([
+            'DataID' => '{043EA491-0325-4ADD-8FC2-A30C8EEB4D3F}', 
+            'Topic'  => $Topic,
+            'Payload'=> $Payload
+        ]);
+        $this->SendDataToParent($DataJSON);
+    }
+
+    // ... (Keep CreateStatusProfile and CreateActionProfile the same as before) ...
+    private function CreateStatusProfile()
+    {
+        if (!IPS_VariableProfileExists('Nuki.State')) {
+            IPS_CreateVariableProfile('Nuki.State', 1);
+            IPS_SetVariableProfileAssociation('Nuki.State', 0, 'Uncalibrated', '', -1);
+            IPS_SetVariableProfileAssociation('Nuki.State', 1, 'Locked', 'Lock', 0xFF0000);
+            IPS_SetVariableProfileAssociation('Nuki.State', 2, 'Unlocking', '', -1);
+            IPS_SetVariableProfileAssociation('Nuki.State', 3, 'Unlocked', 'LockOpen', 0x00FF00);
+            IPS_SetVariableProfileAssociation('Nuki.State', 4, 'Locking', '', -1);
+            IPS_SetVariableProfileAssociation('Nuki.State', 5, 'Unlatched', 'Door', 0x00FF00);
+            IPS_SetVariableProfileAssociation('Nuki.State', 254, 'Motor Blocked', 'Warning', 0xFF0000);
+        }
+    }
+
+    private function CreateActionProfile()
+    {
+        if (!IPS_VariableProfileExists('Nuki.Action')) {
+            IPS_CreateVariableProfile('Nuki.Action', 1);
+            IPS_SetVariableProfileIcon('Nuki.Action', 'Power');
+            IPS_SetVariableProfileAssociation('Nuki.Action', 2, 'Lock', 'Lock', 0xFF0000);
+            IPS_SetVariableProfileAssociation('Nuki.Action', 1, 'Unlock', 'LockOpen', 0x00FF00);
+            IPS_SetVariableProfileAssociation('Nuki.Action', 3, 'Unlatch (Open)', 'Door', 0x0000FF);
+        }
+    }
+}

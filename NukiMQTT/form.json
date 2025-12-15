@@ -1,0 +1,40 @@
+{
+    "elements": [
+        {
+            "type": "Label",
+            "caption": "MQTT Configuration"
+        },
+        {
+            "type": "ValidationTextBox",
+            "name": "BaseTopic",
+            "caption": "Base Topic",
+            "value": "nuki"
+        },
+        {
+            "type": "ValidationTextBox",
+            "name": "DeviceID",
+            "caption": "Device ID (Hex)",
+            "value": "45A2F2BF"
+        },
+        {
+            "type": "Label",
+            "caption": "Note: The Device ID is usually found in the topic path (e.g., nuki/ID/...)"
+        }
+    ],
+    "actions": [
+        {
+            "type": "Label",
+            "caption": "Test Center"
+        },
+        {
+            "type": "Button",
+            "caption": "Unlock",
+            "onClick": "NUKI_RequestAction($id, 'LockAction', 1);"
+        },
+        {
+            "type": "Button",
+            "caption": "Lock",
+            "onClick": "NUKI_RequestAction($id, 'LockAction', 2);"
+        }
+    ]
+}
