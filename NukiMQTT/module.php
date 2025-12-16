@@ -2,13 +2,19 @@
 
 declare(strict_types=1);
 
+// Polyfill for fnmatch if missing on some Symcon systems
+if (!function_exists('fnmatch')) {
+    function fnmatch($pattern, $string): bool
+    {
+        return boolval(preg_match('#^' . strtr(preg_quote($pattern, '#'), ['\*' => '.*', '\?' => '.']) . '$#i', $string));
+    }
+}
+
 class NukiMQTT extends IPSModule
 {
-    // Constants for Connection (Working Configuration)
     private const NUKI_MQTT_SERVER_GUID = '{C6D2AEB3-6E1F-4B2E-8E69-3A1A00246850}';
     private const NUKI_MQTT_TX_GUID     = '{043EA491-0325-4ADD-8FC2-A30C8EEB4D3F}';
     
-    // Actions
     const ACTION_UNLOCK = 1;
     const ACTION_LOCK = 2;
     const ACTION_UNLATCH = 3;
@@ -17,39 +23,30 @@ class NukiMQTT extends IPSModule
     {
         parent::Create();
 
-        // 1. Settings
         $this->RegisterPropertyString('BaseTopic', 'nuki'); 
         $this->RegisterPropertyString('DeviceID', '45A2F2BF');
 
-        // 2. Connect to Parent
         $this->ConnectParent(self::NUKI_MQTT_SERVER_GUID);
 
-        // 3. Profiles
         $this->CreateStatusProfile();
         $this->CreateActionProfile();
         $this->CreateDoorSensorProfile();
 
-        // 4. Variables
-
-        // --- Main Lock Controls ---
+        // Register Variables
         $this->RegisterVariableInteger('LockState', 'Current Status', 'Nuki.State', 10);
         $this->RegisterVariableInteger('LockAction', 'Control', 'Nuki.Action', 20);
         $this->EnableAction('LockAction');
         
-        // --- Connectivity ---
-        $this->RegisterVariableBoolean('Connected', 'MQTT Connected', '~Alert.Reversed', 30);
+        $this->RegisterVariableBoolean('Connected', 'Connected', '~Alert.Reversed', 30);
         
-        // --- Battery ---
         $this->RegisterVariableInteger('BatteryCharge', 'Battery Charge', '~Battery.100', 40);
         $this->RegisterVariableBoolean('BatteryCritical', 'Battery Low', '~Alert', 41);
         $this->RegisterVariableBoolean('BatteryCharging', 'Battery Charging', '~Switch', 42);
         $this->RegisterVariableBoolean('KeypadBatteryCritical', 'Keypad Battery Low', '~Alert', 43);
 
-        // --- Door Sensor ---
-        $this->RegisterVariableInteger('DoorSensorState', 'Door State', 'Nuki.DoorSensor', 50);
+        $this->RegisterVariableInteger('DoorSensorState', 'Door Sensor', 'Nuki.DoorSensor', 50);
 
-        // --- Info ---
-        $this->RegisterVariableString('Firmware', 'Firmware Version', '', 80);
+        $this->RegisterVariableString('Firmware', 'Firmware', '', 80);
         $this->RegisterVariableString('LastAction', 'Last Action', '', 90);
     }
 
@@ -65,7 +62,7 @@ class NukiMQTT extends IPSModule
         $baseTopic = $this->ReadPropertyString('BaseTopic');
         $deviceId = $this->ReadPropertyString('DeviceID');
         
-        // Filter: Capture everything for this device
+        // Filter ensures we only process messages for this specific lock
         $filter = '.*' . preg_quote($baseTopic . '/' . $deviceId) . '/.*';
         $this->SetReceiveDataFilter($filter);
     }
@@ -104,57 +101,53 @@ class NukiMQTT extends IPSModule
             return;
         }
 
-        $topicRaw = $data->Topic;
+        $topic = $data->Topic;
         $payload = utf8_decode($data->Payload);
 
-        // Debug incoming
-        $this->SendDebug('MQTT In', "Topic: $topicRaw | Payload: $payload", 0);
+        $this->SendDebug('MQTT In', "Topic: $topic | Payload: $payload", 0);
 
-        $baseTopic = $this->ReadPropertyString('BaseTopic');
-        $deviceId = $this->ReadPropertyString('DeviceID');
-        $root = $baseTopic . '/' . $deviceId . '/';
+        // We use fnmatch (Wildcards) to match topics.
+        // This makes it insensitive to Case (A vs a) and simpler to read.
 
-        // -----------------------------------------------------------
-        // Process Topics
-        // -----------------------------------------------------------
+        switch (true) {
+            // Lock State
+            case fnmatch('*/lockState', $topic):
+                $this->SetValue('LockState', intval($payload));
+                break;
+            
+            // Connection
+            case fnmatch('*/connected', $topic):
+                $this->SetValue('Connected', ($payload === 'true'));
+                break;
 
-        // 1. Lock State
-        if ($topicRaw === $root . 'lockState') {
-            $this->SetValue('LockState', intval($payload));
-        } 
-        
-        // 2. Connectivity
-        elseif ($topicRaw === $root . 'connected') {
-            $this->SetValue('Connected', ($payload === 'true'));
-        }
+            // Battery
+            case fnmatch('*/batteryChargeState', $topic):
+                $this->SetValue('BatteryCharge', intval($payload));
+                break;
+            case fnmatch('*/batteryCritical', $topic):
+                $this->SetValue('BatteryCritical', ($payload === 'true'));
+                break;
+            case fnmatch('*/batteryCharging', $topic):
+                $this->SetValue('BatteryCharging', ($payload === 'true'));
+                break;
+            case fnmatch('*/keypadBatteryCritical', $topic):
+                $this->SetValue('KeypadBatteryCritical', ($payload === 'true'));
+                break;
 
-        // 3. Battery Info
-        elseif ($topicRaw === $root . 'batteryChargeState') {
-            $this->SetValue('BatteryCharge', intval($payload));
-        }
-        elseif ($topicRaw === $root . 'batteryCritical') {
-            $this->SetValue('BatteryCritical', ($payload === 'true'));
-        }
-        elseif ($topicRaw === $root . 'batteryCharging') {
-            $this->SetValue('BatteryCharging', ($payload === 'true'));
-        }
-        elseif ($topicRaw === $root . 'keypadBatteryCritical') {
-            $this->SetValue('KeypadBatteryCritical', ($payload === 'true'));
-        }
+            // Door Sensor
+            case fnmatch('*/doorsensorState', $topic):
+                $this->SetValue('DoorSensorState', intval($payload));
+                break;
 
-        // 4. Door Sensor
-        elseif ($topicRaw === $root . 'doorsensorState') {
-            $this->SetValue('DoorSensorState', intval($payload));
-        }
-
-        // 5. Device Info
-        elseif ($topicRaw === $root . 'firmware') {
-            $this->SetValue('Firmware', $payload);
-        }
-
-        // 6. Last Action Event (Parsing "1,2,0,0,0")
-        elseif ($topicRaw === $root . 'lockActionEvent') {
-            $this->ParseLockEvent($payload);
+            // Info
+            case fnmatch('*/firmware', $topic):
+                $this->SetValue('Firmware', $payload);
+                break;
+            
+            // Last Action (Parsing "1,2,0...")
+            case fnmatch('*/lockActionEvent', $topic):
+                $this->ParseLockEvent($payload);
+                break;
         }
     }
 
@@ -179,6 +172,7 @@ class NukiMQTT extends IPSModule
         $payload = (string)$actionCode;
 
         $this->SendDebug('MQTT Out', "Topic: $topic | Payload: $payload", 0);
+        
         $this->SendMQTT($topic, $payload);
     }
 
@@ -196,10 +190,8 @@ class NukiMQTT extends IPSModule
         $this->SendDataToParent($DataJSON);
     }
 
-    // Helper to make "1,2,0..." readable
     private function ParseLockEvent($payload)
     {
-        // Format: Action, Trigger, AuthID, CodeID, AutoUnlock
         $parts = explode(',', $payload);
         if(count($parts) < 2) return;
 
@@ -209,18 +201,15 @@ class NukiMQTT extends IPSModule
         ];
         
         $triggerMap = [
-            0 => 'Manual/App', 1 => 'System', 2 => 'Button', 
-            3 => 'Automatic', 6 => 'Auto Lock', 172 => 'MQTT'
+            0 => 'Manual', 1 => 'System', 2 => 'Button', 
+            3 => 'Auto', 6 => 'AutoLock', 172 => 'MQTT'
         ];
 
-        $action = isset($actionMap[$parts[0]]) ? $actionMap[$parts[0]] : 'Unknown(' . $parts[0] . ')';
-        $trigger = isset($triggerMap[$parts[1]]) ? $triggerMap[$parts[1]] : 'Unknown(' . $parts[1] . ')';
+        $action = isset($actionMap[$parts[0]]) ? $actionMap[$parts[0]] : $parts[0];
+        $trigger = isset($triggerMap[$parts[1]]) ? $triggerMap[$parts[1]] : $parts[1];
 
-        $text = "$action via $trigger";
-        $this->SetValue('LastAction', $text);
+        $this->SetValue('LastAction', "$action via $trigger");
     }
-
-    // --- Profiles ---
 
     private function CreateStatusProfile()
     {
@@ -247,7 +236,6 @@ class NukiMQTT extends IPSModule
             IPS_SetVariableProfileAssociation('Nuki.DoorSensor', 2, 'Closed', 'Door', 0x00FF00);
             IPS_SetVariableProfileAssociation('Nuki.DoorSensor', 3, 'Open', 'Door', 0xFF0000);
             IPS_SetVariableProfileAssociation('Nuki.DoorSensor', 4, 'Unknown', '', -1);
-            IPS_SetVariableProfileAssociation('Nuki.DoorSensor', 5, 'Calibrating', '', -1);
         }
     }
 
