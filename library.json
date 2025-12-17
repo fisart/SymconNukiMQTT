@@ -1,6 +1,6 @@
 {
     "id": "{5B123456-7890-ABCD-EF12-34567890ABCD}",
-    "author": "fisart",
+    "author": "Artur Fischer",
     "name": "Nuki MQTT Library",
     "url": "https://github.com/fisart/SymconNukiMQTT",
     "version": "1.0",
